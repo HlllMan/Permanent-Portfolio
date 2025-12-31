@@ -1,0 +1,40 @@
+{
+  "portfolio_name": "永久投资组合_沪深易方达版",
+  "rebalance_frequency": "年度",
+  "assets": {
+    "stock": {
+      "name": "沪深",
+      "full_name": "沪深300 TR",
+      "data_file": "data/沪深300TR historical data.csv",
+      "date_format": "%m/%d/%Y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.25
+    },
+    "bond": {
+      "name": "易方达债",
+      "full_name": "易方达增强回报债券",
+      "data_file": "data/易方达增强回报债券110017 Historical Data.csv",
+      "date_format": "%b %y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.25
+    },
+    "gold": {
+      "name": "黄金",
+      "full_name": "黄金 (XAU/CNY)",
+      "data_file": "data/黄金对人民币XAU_CNY历史数据.csv",
+      "date_format": "%Y-%m-%d",
+      "date_column": "日期",
+      "price_column": "收盘",
+      "weight": 0.25
+    },
+    "cash": {
+      "name": "现金",
+      "full_name": "现金 (1%年化)",
+      "annual_return": 0.01,
+      "weight": 0.25
+    }
+  }
+}
+

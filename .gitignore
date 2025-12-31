@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 数据文件（原始数据可以选择性忽略，根据需要调整）
+# data/*.csv
+# 如果数据文件很大或包含敏感信息，请取消注释上面一行
+
+# 临时文件
+*.tmp
+*.bak
+
