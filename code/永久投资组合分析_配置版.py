@@ -19,37 +19,33 @@ def load_config(config_path):
         config = json.load(f)
     return config
 
-def load_asset_data(asset_config, base_path):
+def load_asset_data(asset, base_path):
     """根据配置加载资产数据"""
-    if 'data_file' in asset_config:
-        # 常规资产数据
-        file_path = os.path.join(base_path, asset_config['data_file'])
-        df = pd.read_csv(file_path)
-        
-        # 转换日期
-        df['Date'] = pd.to_datetime(df[asset_config['date_column']], 
-                                     format=asset_config['date_format'])
-        
-        # 转换价格
-        df['Price'] = df[asset_config['price_column']].astype(str).str.replace(',', '').astype(float)
-        
-        return df[['Date', 'Price']].sort_values('Date')
-    else:
+    if asset.get('type') == 'cash':
         # 现金资产，返回None，后续特殊处理
         return None
+    
+    # 常规资产数据
+    file_path = os.path.join(base_path, asset['data_file'])
+    df = pd.read_csv(file_path)
+    
+    # 转换日期
+    df['Date'] = pd.to_datetime(df[asset['date_column']], 
+                                 format=asset['date_format'])
+    
+    # 转换价格
+    df['Price'] = df[asset['price_column']].astype(str).str.replace(',', '').astype(float)
+    
+    return df[['Date', 'Price']].sort_values('Date')
 
 def generate_filename(config):
     """根据配置生成文件名"""
-    # 按顺序：股票、债券、黄金、现金
-    order = ['stock', 'bond', 'gold', 'cash']
     parts = []
     
-    for asset_type in order:
-        if asset_type in config['assets']:
-            asset = config['assets'][asset_type]
-            name = asset['name']
-            weight = int(asset['weight'] * 100)
-            parts.append(f"{name}{weight}")
+    for asset in config['assets']:
+        name = asset['name']
+        weight = int(asset['weight'] * 100)
+        parts.append(f"{name}{weight}")
     
     filename = '_'.join(parts) + '.csv'
     return filename
@@ -68,39 +64,55 @@ def analyze_portfolio(config_path):
     print(f"\n投资组合: {config['portfolio_name']}")
     print(f"再平衡频率: {config['rebalance_frequency']}")
     print("\n资产配置:")
-    for asset_type, asset_config in config['assets'].items():
-        print(f"  {asset_config['name']}: {asset_config['weight']*100:.0f}%")
+    for asset in config['assets']:
+        print(f"  {asset['name']}: {asset['weight']*100:.0f}%")
     
     print("\n" + "="*80)
     print("加载数据...")
     
     # 加载各资产数据
     assets_data = {}
-    for asset_type, asset_config in config['assets'].items():
-        if asset_type != 'cash':
-            df = load_asset_data(asset_config, base_path)
-            assets_data[asset_type] = df
-            print(f"{asset_config['name']}数据: {len(df)}行, {df['Date'].min()} 至 {df['Date'].max()}")
+    cash_assets = []
+    
+    for i, asset in enumerate(config['assets']):
+        asset_id = f"asset_{i}"
+        
+        if asset.get('type') == 'cash':
+            cash_assets.append((asset_id, asset))
+            continue
+        
+        df = load_asset_data(asset, base_path)
+        if df is not None:
+            assets_data[asset_id] = {
+                'data': df,
+                'config': asset
+            }
+            print(f"{asset['name']}数据: {len(df)}行, {df['Date'].min()} 至 {df['Date'].max()}")
     
     # 转换为月度数据并合并
     print("\n数据预处理...")
     monthly_data = {}
-    for asset_type, df in assets_data.items():
+    
+    for asset_id, asset_info in assets_data.items():
+        df = asset_info['data']
         monthly = df.set_index('Date').resample('ME').last().dropna()
-        monthly.columns = [asset_type]
-        monthly_data[asset_type] = monthly
+        monthly.columns = [asset_id]
+        monthly_data[asset_id] = monthly
     
     # 合并所有资产数据
-    portfolio_df = monthly_data[list(monthly_data.keys())[0]]
-    for asset_type in list(monthly_data.keys())[1:]:
-        portfolio_df = pd.merge(portfolio_df, monthly_data[asset_type], 
-                               left_index=True, right_index=True, how='inner')
+    if len(monthly_data) > 0:
+        portfolio_df = monthly_data[list(monthly_data.keys())[0]]
+        for asset_id in list(monthly_data.keys())[1:]:
+            portfolio_df = pd.merge(portfolio_df, monthly_data[asset_id], 
+                                   left_index=True, right_index=True, how='inner')
+    else:
+        print("错误：没有可用的资产数据")
+        return
     
-    # 添加现金（固定收益率）
-    if 'cash' in config['assets']:
-        cash_config = config['assets']['cash']
-        annual_return = cash_config['annual_return']
-        portfolio_df['cash'] = 100 * ((1 + annual_return) ** (1/12)) ** np.arange(len(portfolio_df))
+    # 添加现金资产（固定收益率）
+    for asset_id, asset in cash_assets:
+        annual_return = asset['annual_return']
+        portfolio_df[asset_id] = 100 * ((1 + annual_return) ** (1/12)) ** np.arange(len(portfolio_df))
     
     print(f"合并后数据: {len(portfolio_df)}行")
     print(f"数据范围: {portfolio_df.index.min()} 至 {portfolio_df.index.max()}")
@@ -112,7 +124,11 @@ def analyze_portfolio(config_path):
     initial_value = 10000
     portfolio_df['Year'] = portfolio_df.index.year
     portfolio_df['Portfolio_value'] = 0.0
+    
+    # 初始化每个资产的份额
     current_shares = {}
+    for i in range(len(config['assets'])):
+        current_shares[f"asset_{i}"] = 0
     
     years = sorted(portfolio_df['Year'].unique())
     rebalance_count = len(years) - 1
@@ -120,7 +136,6 @@ def analyze_portfolio(config_path):
     
     for idx in portfolio_df.index:
         year = portfolio_df.loc[idx, 'Year']
-        month = idx.month
         
         # 年初再平衡
         first_month = portfolio_df[portfolio_df['Year'] == year].index[0]
@@ -131,15 +146,17 @@ def analyze_portfolio(config_path):
                 prev_idx = portfolio_df[portfolio_df.index < idx].index[-1]
                 current_total = portfolio_df.loc[prev_idx, 'Portfolio_value']
             
-            # 再平衡
-            for asset_type, asset_config in config['assets'].items():
-                amount = current_total * asset_config['weight']
-                current_shares[asset_type] = amount / portfolio_df.loc[idx, asset_type]
+            # 再平衡：按权重分配
+            for i, asset in enumerate(config['assets']):
+                asset_id = f"asset_{i}"
+                amount = current_total * asset['weight']
+                current_shares[asset_id] = amount / portfolio_df.loc[idx, asset_id]
         
         # 计算当前总值
         total_value = 0
-        for asset_type in config['assets'].keys():
-            total_value += current_shares[asset_type] * portfolio_df.loc[idx, asset_type]
+        for i in range(len(config['assets'])):
+            asset_id = f"asset_{i}"
+            total_value += current_shares[asset_id] * portfolio_df.loc[idx, asset_id]
         portfolio_df.loc[idx, 'Portfolio_value'] = total_value
     
     # 计算年度收益率
@@ -242,16 +259,14 @@ def analyze_portfolio(config_path):
     
     # 策略配置信息
     strategy_info = []
-    for asset_type in ['stock', 'bond', 'gold', 'cash']:
-        if asset_type in config['assets']:
-            asset = config['assets'][asset_type]
-            strategy_info.append({
-                '类别': '策略配置',
-                '期间': f'{asset_type.capitalize()}象限',
-                '起始价值': asset['full_name'],
-                '结束价值': f"{int(asset['weight']*100)}%",
-                '年化收益率(%)': ''
-            })
+    for i, asset in enumerate(config['assets']):
+        strategy_info.append({
+            '类别': '策略配置',
+            '期间': f'资产{i+1}',
+            '起始价值': asset['full_name'],
+            '结束价值': f"{int(asset['weight']*100)}%",
+            '年化收益率(%)': ''
+        })
     
     strategy_info.append({
         '类别': '策略说明',
@@ -326,13 +341,13 @@ def analyze_portfolio(config_path):
 if __name__ == "__main__":
     import sys
     
-    # 可以通过命令行参数指定配置文件，否则使用默认配置
+    # 可以通过命令行参数指定配置文件
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
     else:
-        # 默认配置文件
-        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        config_path = os.path.join(base_path, 'config', '永久投资组合_config.json')
+        print("请指定配置文件路径")
+        print("用法: python3 永久投资组合分析_配置版.py config/配置文件.json")
+        sys.exit(1)
     
     analyze_portfolio(config_path)
 

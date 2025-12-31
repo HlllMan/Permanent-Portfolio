@@ -1,0 +1,27 @@
+{
+  "portfolio_name": "全美股组合",
+  "rebalance_frequency": "年度",
+  "assets": [
+    {
+      "name": "Nas",
+      "full_name": "Nasdaq 100 TR",
+      "type": "stock",
+      "data_file": "data/Nasdaq 100 TR Historical Data.csv",
+      "date_format": "%m/%d/%Y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.50
+    },
+    {
+      "name": "S&P",
+      "full_name": "S&P 500 TR",
+      "type": "stock",
+      "data_file": "data/S&P 500 TR Historical Data.csv",
+      "date_format": "%m/%d/%Y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.50
+    }
+  ]
+}
+

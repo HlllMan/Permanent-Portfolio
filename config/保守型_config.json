@@ -1,0 +1,44 @@
+{
+  "portfolio_name": "保守型",
+  "rebalance_frequency": "年度",
+  "assets": [
+    {
+      "name": "S&P",
+      "full_name": "S&P 500 TR",
+      "type": "stock",
+      "data_file": "data/S&P 500 TR Historical Data.csv",
+      "date_format": "%m/%d/%Y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.20
+    },
+    {
+      "name": "易方达债",
+      "full_name": "易方达增强回报债券",
+      "type": "bond",
+      "data_file": "data/易方达增强回报债券110017 Historical Data.csv",
+      "date_format": "%b %y",
+      "date_column": "Date",
+      "price_column": "Price",
+      "weight": 0.50
+    },
+    {
+      "name": "黄金",
+      "full_name": "黄金 (XAU/CNY)",
+      "type": "gold",
+      "data_file": "data/黄金对人民币XAU_CNY历史数据.csv",
+      "date_format": "%Y-%m-%d",
+      "date_column": "日期",
+      "price_column": "收盘",
+      "weight": 0.15
+    },
+    {
+      "name": "现金",
+      "full_name": "现金 (1%年化)",
+      "type": "cash",
+      "annual_return": 0.01,
+      "weight": 0.15
+    }
+  ]
+}
+
